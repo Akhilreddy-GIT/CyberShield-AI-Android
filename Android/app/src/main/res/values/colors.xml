@@ -1,6 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="shield_navy">#0F3460</color>
-    <color name="shield_deep">#1A1A2E</color>
-    <color name="ic_launcher_background">#0F3460</color>
+    <!-- Obsidian Emerald palette (see presentation/theme/Color.kt for the
+         source of truth used inside Compose; these XML values are for
+         resources Compose doesn't reach — status bar / launcher icon). -->
+    <color name="shield_navy">#4EDEA3</color>
+    <color name="shield_deep">#0F1511</color>
+    <color name="shield_cream">#0A0F0C</color>
+    <color name="ic_launcher_background">#0A0F0C</color>
 </resources>

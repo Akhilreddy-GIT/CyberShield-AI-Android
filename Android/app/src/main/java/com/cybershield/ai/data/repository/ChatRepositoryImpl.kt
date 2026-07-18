@@ -32,6 +32,9 @@ class ChatRepositoryImpl @Inject constructor(
 
     override suspend fun getHistory(caseId: String): List<ChatHistoryItemDto> {
         return try {
+            // The live backend response is the single source of truth for
+            // is_critical / is_cyber_incident / analysis. Returned as-is —
+            // no client-side derivation of any of these fields.
             val remote = api.chatHistory(caseId)
             messageCacheDao.clearForCase(caseId)
             messageCacheDao.upsertMessages(
@@ -47,12 +50,24 @@ class ChatRepositoryImpl @Inject constructor(
             )
             remote
         } catch (e: Exception) {
+            // Offline/cache fallback: CachedMessageEntity currently persists
+            // only conversation text and citations, not backend risk-analysis
+            // fields. We deliberately reconstruct these cached messages with
+            // is_critical = false, is_cyber_incident = false, analysis = null
+            // rather than guessing — showing plain cached text with no threat
+            // cards is correct; fabricating a risk verdict for offline data
+            // is exactly the bug this fix eliminates. If full offline fidelity
+            // for threat analysis is required, CachedMessageEntity/
+            // MessageCacheDao must be extended to persist those fields too.
             messageCacheDao.getMessages(caseId).map {
                 ChatHistoryItemDto(
                     role = it.role,
                     content = it.content,
                     cited_sources = if (it.citedSources.isBlank()) emptyList() else it.citedSources.split(","),
                     created_at = it.createdAt,
+                    is_critical = false,
+                    is_cyber_incident = false,
+                    analysis = null,
                 )
             }.ifEmpty { throw e }
         }

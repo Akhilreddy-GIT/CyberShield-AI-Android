@@ -9,13 +9,22 @@ data class ChatMessageInDto(
 )
 
 data class ChatMessageOutDto(
-    @Json(name = "case_id") val case_id: String,
+    @Json(name = "case_id") val case_id: String?,
     @Json(name = "reply") val reply: String,
     @Json(name = "category") val category: String?,
     @Json(name = "is_critical") val is_critical: Boolean,
+    // Explicit backend determination of whether this message represents a
+    // real cyber incident. The client must never infer this from message
+    // text, category strings, or message position — only this flag.
+    @Json(name = "is_cyber_incident") val is_cyber_incident: Boolean = false,
     @Json(name = "cited_sources") val cited_sources: List<String>,
     @Json(name = "used_llm") val used_llm: Boolean,
     @Json(name = "helplines") val helplines: List<HelplineDto>? = null,
+    // Present only when the backend has actually produced a threat
+    // analysis for this message (i.e. is_cyber_incident == true). Null for
+    // greetings, refusals, and any non-incident reply — the client must
+    // treat null as "no analysis to show", never synthesize one.
+    @Json(name = "analysis") val analysis: AnalysisDto? = null,
 )
 
 data class HelplineDto(
@@ -24,11 +33,29 @@ data class HelplineDto(
     @Json(name = "use_for") val use_for: String,
 )
 
+data class AnalysisDto(
+    @Json(name = "title") val title: String,
+    @Json(name = "risk_score") val risk_score: Int,
+    @Json(name = "risk_level") val risk_level: String,
+    @Json(name = "certainty") val certainty: Float,
+    @Json(name = "target") val target: String,
+    @Json(name = "recovery_actions") val recovery_actions: List<RecoveryActionDto>? = null,
+)
+
+data class RecoveryActionDto(
+    @Json(name = "title") val title: String,
+    @Json(name = "recommended") val recommended: Boolean = false,
+    @Json(name = "optional") val optional: Boolean = false,
+)
+
 data class ChatHistoryItemDto(
     @Json(name = "role") val role: String,
     @Json(name = "content") val content: String,
     @Json(name = "cited_sources") val cited_sources: List<String> = emptyList(),
     @Json(name = "created_at") val created_at: String? = null,
+    @Json(name = "is_critical") val is_critical: Boolean = false,
+    @Json(name = "is_cyber_incident") val is_cyber_incident: Boolean = false,
+    @Json(name = "analysis") val analysis: AnalysisDto? = null,
 )
 
 data class CaseOutDto(
@@ -38,6 +65,13 @@ data class CaseOutDto(
     @Json(name = "risk_score") val risk_score: Int,
     @Json(name = "status") val status: String,
     @Json(name = "created_at") val created_at: String,
+    // Backend-computed recovery lifecycle state (see recovery_lifecycle_service.py).
+    // Never derive progress from risk_score on the client — the backend already
+    // does this from actual case stage, and duplicating that logic client-side
+    // is exactly the kind of fabricated value this app must avoid.
+    @Json(name = "recovery_stage") val recovery_stage: String? = null,
+    @Json(name = "recovery_stage_label") val recovery_stage_label: String? = null,
+    @Json(name = "recovery_progress_percent") val recovery_progress_percent: Int? = null,
 )
 
 data class CaseListItemDto(
@@ -46,6 +80,9 @@ data class CaseListItemDto(
     @Json(name = "risk_level") val risk_level: String,
     @Json(name = "status") val status: String,
     @Json(name = "created_at") val created_at: String,
+    @Json(name = "recovery_stage") val recovery_stage: String? = null,
+    @Json(name = "recovery_stage_label") val recovery_stage_label: String? = null,
+    @Json(name = "recovery_progress_percent") val recovery_progress_percent: Int? = null,
 )
 
 data class RiskFactorsInDto(
@@ -92,6 +129,10 @@ data class EvidenceItemDto(
     @Json(name = "description") val description: String? = null,
     @Json(name = "extracted_text") val extracted_text: String? = null,
     @Json(name = "uploaded_at") val uploaded_at: String,
+    // New backend fields (additive): relative URL to view/download the file.
+    // Null only for items returned by very old server versions; use fallback URL in that case.
+    @Json(name = "file_url") val file_url: String? = null,
+    @Json(name = "download_url") val download_url: String? = null,
 )
 
 data class EvidenceUploadOutDto(
@@ -100,6 +141,9 @@ data class EvidenceUploadOutDto(
     @Json(name = "file_type") val file_type: String?,
     @Json(name = "uploaded_at") val uploaded_at: String,
     @Json(name = "extracted_text") val extracted_text: String?,
+    // New backend fields (additive): relative URL to view/download the uploaded file.
+    @Json(name = "file_url") val file_url: String? = null,
+    @Json(name = "download_url") val download_url: String? = null,
 )
 
 data class DeleteStatusDto(
@@ -160,7 +204,10 @@ data class HealthDto(
 
 data class CaseWsUpdateDto(
     @Json(name = "case_id") val case_id: String,
-    @Json(name = "status") val status: String,
-    @Json(name = "risk_level") val risk_level: String,
-    @Json(name = "risk_score") val risk_score: Int,
+    @Json(name = "status") val status: String? = null,
+    @Json(name = "risk_level") val risk_level: String? = null,
+    @Json(name = "risk_score") val risk_score: Int? = null,
+    @Json(name = "timeline_events_added") val timeline_events_added: List<TimelineEventDto>? = null,
+    @Json(name = "recovery_stage") val recovery_stage: String? = null,
+    @Json(name = "recovery_progress_percent") val recovery_progress_percent: Int? = null,
 )

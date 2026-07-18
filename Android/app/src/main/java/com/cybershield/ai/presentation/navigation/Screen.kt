@@ -1,6 +1,8 @@
 package com.cybershield.ai.presentation.navigation
 
 sealed class Screen(val route: String) {
+    data object Splash : Screen("splash")
+    data object Login : Screen("login")
     data object Home : Screen("home")
     data object Chat : Screen("chat?caseId={caseId}") {
         fun create(caseId: String? = null) =
@@ -25,8 +27,12 @@ sealed class Screen(val route: String) {
     data object Timeline : Screen("timeline/{caseId}") {
         fun create(caseId: String) = "timeline/$caseId"
     }
+    data object Vault : Screen("vault")
     data object Account : Screen("account")
+    data object Profile : Screen("profile")
+    data object Privacy : Screen("privacy")
     data object Legal : Screen("legal")
     data object Emergency : Screen("emergency")
     data object Awareness : Screen("awareness")
 }
+

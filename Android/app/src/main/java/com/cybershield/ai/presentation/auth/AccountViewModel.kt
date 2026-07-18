@@ -33,6 +33,8 @@ class AccountViewModel @Inject constructor(
     private val _uiState = MutableStateFlow(AccountUiState())
     val uiState: StateFlow<AccountUiState> = _uiState.asStateFlow()
 
+    val authTokenFlow = authRepository.observeAuthToken()
+
     init {
         viewModelScope.launch {
             authRepository.ensureAnonUserId()

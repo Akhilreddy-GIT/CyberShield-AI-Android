@@ -19,6 +19,12 @@ data class HomeUiState(
     val activeCaseId: String? = null,
     val backendOnline: Boolean? = null,
     val llmConfigured: Boolean = false,
+    // Real, backend-derived recovery state for the active case — never a
+    // client-side guess. Null while there's no active case or it hasn't
+    // loaded yet; the UI must treat null as "no data", not "0%".
+    val activeCaseCategory: String? = null,
+    val recoveryStageLabel: String? = null,
+    val recoveryProgressPercent: Int? = null,
 )
 
 @HiltViewModel
@@ -44,9 +50,27 @@ class HomeViewModel @Inject constructor(
         viewModelScope.launch {
             caseRepository.observeActiveCaseId().collect { id ->
                 _uiState.update { it.copy(activeCaseId = id) }
+                if (id != null) loadActiveCaseRecovery(id)
             }
         }
         refreshHealth()
+    }
+
+    private fun loadActiveCaseRecovery(caseId: String) {
+        viewModelScope.launch {
+            runCatching { caseRepository.getCase(caseId) }
+                .onSuccess { c ->
+                    _uiState.update {
+                        it.copy(
+                            activeCaseCategory = c.category,
+                            recoveryStageLabel = c.recovery_stage_label,
+                            recoveryProgressPercent = c.recovery_progress_percent,
+                        )
+                    }
+                }
+            // On failure, leave prior values in place rather than fabricating
+            // a fallback — the home card handles nulls with an honest state.
+        }
     }
 
     fun refreshHealth() {

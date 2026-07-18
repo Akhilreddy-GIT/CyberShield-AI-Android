@@ -17,11 +17,41 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
+/**
+ * Backend-confirmed cyber-incident analysis for a single assistant message.
+ *
+ * This exists ONLY when the backend explicitly determined the message
+ * represents a real cyber incident. Every field is sourced directly from
+ * the backend response DTO — nothing here is computed, guessed, or
+ * defaulted by the client.
+ *
+ * NOTE: This assumes the backend response payload is extended to include
+ * an `analysis` object (nullable) with these fields. If the backend does
+ * not yet send `analysis`, it must be added server-side — the client
+ * cannot legitimately synthesize any of these values on its own.
+ */
+data class ThreatAnalysis(
+    val title: String,
+    val riskScore: Int,
+    val riskLevel: String,
+    val certainty: Float,
+    val target: String,
+    val recoveryActions: List<RecoveryActionItem>,
+)
+
+data class RecoveryActionItem(
+    val title: String,
+    val recommended: Boolean = false,
+    val optional: Boolean = false,
+)
+
 data class ChatBubble(
     val role: String,
     val content: String,
     val citedSources: List<String> = emptyList(),
     val isCritical: Boolean = false,
+    val isCyberIncident: Boolean = false,
+    val analysis: ThreatAnalysis? = null,
 )
 
 data class ChatUiState(
@@ -78,10 +108,40 @@ class ChatViewModel @Inject constructor(
                     anonUserId = anon,
                     message = text,
                 )
-                caseRepository.setActiveCaseId(response.case_id)
+
+                // case_id is only meaningful once the backend has actually
+                // established a case. Never fabricate or propagate a case
+                // state the backend did not send.
+                val backendCaseId = response.case_id?.takeIf { it.isNotBlank() }
+                if (backendCaseId != null) {
+                    caseRepository.setActiveCaseId(backendCaseId)
+                }
+
+                // The backend is the ONLY source of truth for whether this
+                // is a real cyber incident and for every analysis value.
+                // `analysis` must be null/absent unless the backend
+                // explicitly returns it — the client performs no inference.
+                val analysisDto = response.analysis
+                val analysis = analysisDto?.let {
+                    ThreatAnalysis(
+                        title = it.title,
+                        riskScore = it.risk_score,
+                        riskLevel = it.risk_level,
+                        certainty = it.certainty,
+                        target = it.target,
+                        recoveryActions = it.recovery_actions.orEmpty().map { action ->
+                            RecoveryActionItem(
+                                title = action.title,
+                                recommended = action.recommended,
+                                optional = action.optional,
+                            )
+                        },
+                    )
+                }
+
                 _uiState.update {
                     it.copy(
-                        caseId = response.case_id,
+                        caseId = backendCaseId ?: it.caseId,
                         category = response.category,
                         isSending = false,
                         helplines = response.helplines.orEmpty(),
@@ -90,6 +150,8 @@ class ChatViewModel @Inject constructor(
                             content = response.reply,
                             citedSources = response.cited_sources,
                             isCritical = response.is_critical,
+                            isCyberIncident = response.is_cyber_incident,
+                            analysis = analysis,
                         ),
                     )
                 }
@@ -114,6 +176,24 @@ class ChatViewModel @Inject constructor(
                                 role = m.role,
                                 content = m.content,
                                 citedSources = m.cited_sources,
+                                isCritical = m.is_critical,
+                                isCyberIncident = m.is_cyber_incident,
+                                analysis = m.analysis?.let { a ->
+                                    ThreatAnalysis(
+                                        title = a.title,
+                                        riskScore = a.risk_score,
+                                        riskLevel = a.risk_level,
+                                        certainty = a.certainty,
+                                        target = a.target,
+                                        recoveryActions = a.recovery_actions.orEmpty().map { action ->
+                                            RecoveryActionItem(
+                                                title = action.title,
+                                                recommended = action.recommended,
+                                                optional = action.optional,
+                                            )
+                                        },
+                                    )
+                                },
                             )
                         },
                     )

@@ -69,6 +69,17 @@ class SessionPreferences @Inject constructor(
         context.sessionDataStore.edit { prefs ->
             prefs.remove(Keys.AUTH_TOKEN)
             prefs.remove(Keys.USERNAME)
+            // Also drop the anon_user_id: while logged in it was overwritten
+            // with the server-assigned, account-linked id (see setAuth). If
+            // we left it in place, ensureAnonUserId() would keep reusing
+            // that same account-linked id after logout, silently attributing
+            // all further "anonymous" activity to the account the user just
+            // signed out of instead of starting a genuinely fresh session.
+            prefs.remove(Keys.ANON_USER_ID)
+            // The active case belonged to the logged-in session too — carrying
+            // it forward would let a fresh anonymous session land straight
+            // back into a previous account's case.
+            prefs.remove(Keys.ACTIVE_CASE_ID)
         }
     }
 

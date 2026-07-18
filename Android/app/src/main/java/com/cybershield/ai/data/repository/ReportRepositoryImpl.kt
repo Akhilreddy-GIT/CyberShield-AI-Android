@@ -5,6 +5,8 @@ import com.cybershield.ai.data.remote.dto.HealthDto
 import com.cybershield.ai.data.remote.dto.ReportDto
 import com.cybershield.ai.domain.repository.HealthRepository
 import com.cybershield.ai.domain.repository.ReportRepository
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import java.io.File
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -18,13 +20,15 @@ class ReportRepositoryImpl @Inject constructor(
 
     override suspend fun downloadPdf(caseId: String, destination: File): File {
         val body = api.getReportPdf(caseId)
-        destination.parentFile?.mkdirs()
-        body.byteStream().use { input ->
-            destination.outputStream().use { output ->
-                input.copyTo(output)
+        return withContext(Dispatchers.IO) {
+            destination.parentFile?.mkdirs()
+            body.byteStream().use { input ->
+                destination.outputStream().use { output ->
+                    input.copyTo(output)
+                }
             }
+            destination
         }
-        return destination
     }
 }
 

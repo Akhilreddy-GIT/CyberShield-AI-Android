@@ -74,6 +74,11 @@ class EvidenceRepositoryImpl @Inject constructor(
                     description = it.description,
                     extracted_text = it.extractedText,
                     uploaded_at = it.uploadedAt,
+                    // Reconstruct the deterministic relative URL from the cached ids so
+                    // evidence viewing still works while offline.  The backend-provided
+                    // file_url is preferred whenever a live network response is available;
+                    // this fallback is only used when the cache is the sole data source.
+                    file_url = "/api/evidence/file/${it.caseId}/${it.id}",
                 )
             }.ifEmpty { throw e }
         }

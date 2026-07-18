@@ -1,53 +1,89 @@
 package com.cybershield.ai.presentation.theme
 
-import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Shapes
 import androidx.compose.material3.darkColorScheme
-import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.unit.dp
 
-val Navy = Color(0xFF0F3460)
-val Deep = Color(0xFF1A1A2E)
-val Accent = Color(0xFFE94560)
-val SoftBlue = Color(0xFFE8EAF6)
-val Teal = Color(0xFF16C79A)
-val Amber = Color(0xFFF0A500)
-val CriticalRed = Color(0xFFD32F2F)
+/**
+ * Obsidian Emerald is strictly dark-mode (DESIGN.md: "The palette is
+ * strictly dark-mode... to provide a low-strain, premium environment").
+ * There is deliberately no light color scheme and no isSystemInDarkTheme()
+ * branch — a security app with a "Quiet Security" identity should look
+ * the same regardless of OS theme setting, the same way Stripe Dashboard
+ * or Linear's dark surfaces don't flip to light mode.
+ */
+private val ObsidianEmeraldColors = darkColorScheme(
+    primary = Emerald,
+    onPrimary = OnEmerald,
+    primaryContainer = EmeraldContainer,
+    onPrimaryContainer = OnEmeraldContainer,
+    inversePrimary = EmeraldInverse,
 
-private val LightColors = lightColorScheme(
-    primary = Navy,
-    onPrimary = Color.White,
-    secondary = Accent,
-    onSecondary = Color.White,
-    tertiary = Teal,
-    background = Color(0xFFF7F8FC),
-    onBackground = Deep,
-    surface = Color.White,
-    onSurface = Deep,
-    error = CriticalRed,
+    secondary = Brass,
+    onSecondary = OnBrass,
+    secondaryContainer = BrassContainer,
+    onSecondaryContainer = OnBrassContainer,
+
+    tertiary = Tertiary,
+    onTertiary = OnTertiary,
+    tertiaryContainer = TertiaryContainer,
+    onTertiaryContainer = OnTertiaryContainer,
+
+    background = ObsidianBackground,
+    onBackground = OnSurface,
+
+    surface = ObsidianSurfaceCard,
+    onSurface = OnSurface,
+    surfaceVariant = ObsidianSurfaceVariant,
+    onSurfaceVariant = OnSurfaceVariant,
+    surfaceTint = Emerald,
+    surfaceDim = ObsidianSurfaceDim,
+    surfaceBright = ObsidianSurfaceBright,
+    surfaceContainerLowest = ObsidianSurfaceContainerLowest,
+    surfaceContainerLow = ObsidianSurfaceContainerLow,
+    surfaceContainer = ObsidianSurfaceContainer,
+    surfaceContainerHigh = ObsidianSurfaceContainerHigh,
+    surfaceContainerHighest = ObsidianSurfaceContainerHighest,
+
+    inverseSurface = InverseSurface,
+    inverseOnSurface = InverseOnSurface,
+
+    outline = Outline,
+    outlineVariant = OutlineVariant,
+
+    error = ErrorRed,
+    onError = OnErrorRed,
+    errorContainer = ErrorContainer,
+    onErrorContainer = OnErrorContainer,
 )
 
-private val DarkColors = darkColorScheme(
-    primary = SoftBlue,
-    onPrimary = Deep,
-    secondary = Accent,
-    onSecondary = Color.White,
-    tertiary = Teal,
-    background = Deep,
-    onBackground = Color.White,
-    surface = Color(0xFF16213E),
-    onSurface = Color.White,
-    error = Accent,
+/**
+ * "Soft-Technical" shape language per DESIGN.md: 0.5rem (8dp) base radius
+ * for structural cards — balances Bebas Neue's sharpness with approachable
+ * roundedness. Small interactive elements (chips, badges) use full pill
+ * shapes and are handled ad hoc at the composable level rather than via
+ * MaterialTheme.shapes, since M3's Shapes system is for containers, not
+ * pills.
+ */
+val CyberShieldShapes = Shapes(
+    extraSmall = RoundedCornerShape(6.dp),
+    small = RoundedCornerShape(8.dp),
+    medium = RoundedCornerShape(12.dp),
+    large = RoundedCornerShape(16.dp),
+    extraLarge = RoundedCornerShape(24.dp),
 )
 
 @Composable
 fun CyberShieldTheme(
-    darkTheme: Boolean = isSystemInDarkTheme(),
     content: @Composable () -> Unit,
 ) {
     MaterialTheme(
-        colorScheme = if (darkTheme) DarkColors else LightColors,
+        colorScheme = ObsidianEmeraldColors,
+        typography = CyberShieldTypography,
+        shapes = CyberShieldShapes,
         content = content,
     )
 }

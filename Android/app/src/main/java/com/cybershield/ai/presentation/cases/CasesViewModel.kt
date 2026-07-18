@@ -10,11 +10,14 @@ import com.cybershield.ai.data.remote.dto.CaseOutDto
 import com.cybershield.ai.domain.repository.AuthRepository
 import com.cybershield.ai.domain.repository.CaseRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -56,6 +59,7 @@ data class CaseDetailUiState(
     val isLoading: Boolean = false,
     val error: String? = null,
     val liveNote: String? = null,
+    val newTimelineEventCount: Int = 0,
 )
 
 @HiltViewModel
@@ -92,22 +96,54 @@ class CaseDetailViewModel @Inject constructor(
     private fun listenWs() {
         wsJob?.cancel()
         wsJob = viewModelScope.launch {
-            try {
-                caseRepository.observeCaseUpdates(caseId).collect { update ->
-                    _uiState.update { state ->
-                        val current = state.case
-                        state.copy(
-                            liveNote = "Live update: ${update.risk_level} / ${update.status}",
-                            case = current?.copy(
-                                risk_level = update.risk_level,
-                                risk_score = update.risk_score,
-                                status = update.status,
-                            ),
-                        )
+            var backoffMs = 2_000L
+            while (isActive) {
+                try {
+                    caseRepository.observeCaseUpdates(caseId).collect { update ->
+                        backoffMs = 2_000L // connection is healthy again — reset backoff
+                        _uiState.update { state ->
+                            val current = state.case
+                            val hasStatusUpdate = update.status != null && update.risk_level != null && update.risk_score != null
+                            val hasTimelineUpdate = !update.timeline_events_added.isNullOrEmpty()
+                            val hasRecoveryUpdate = update.recovery_stage != null || update.recovery_progress_percent != null
+                            state.copy(
+                                liveNote = when {
+                                    hasStatusUpdate -> "Live update: ${update.risk_level} / ${update.status}"
+                                    hasTimelineUpdate -> "New timeline event added"
+                                    else -> state.liveNote
+                                },
+                                case = if ((hasStatusUpdate || hasRecoveryUpdate) && current != null) {
+                                    current.copy(
+                                        risk_level = update.risk_level ?: current.risk_level,
+                                        risk_score = update.risk_score ?: current.risk_score,
+                                        status = update.status ?: current.status,
+                                        recovery_stage = update.recovery_stage ?: current.recovery_stage,
+                                        recovery_progress_percent = update.recovery_progress_percent
+                                            ?: current.recovery_progress_percent,
+                                    )
+                                } else {
+                                    current
+                                },
+                                newTimelineEventCount = if (hasTimelineUpdate) {
+                                    state.newTimelineEventCount + update.timeline_events_added!!.size
+                                } else {
+                                    state.newTimelineEventCount
+                                },
+                            )
+                        }
                     }
+                } catch (_: CancellationException) {
+                    throw CancellationException("listenWs cancelled")
+                } catch (_: Exception) {
+                    // connection dropped — back off and retry rather than
+                    // giving up on live updates for the rest of the screen's
+                    // lifetime. Capped at 30s so a long-broken connection
+                    // doesn't hammer the server, but the screen keeps trying
+                    // to recover on its own.
                 }
-            } catch (_: Exception) {
-                // connection dropped — non-fatal
+                if (!isActive) break
+                delay(backoffMs)
+                backoffMs = (backoffMs * 2).coerceAtMost(30_000L)
             }
         }
     }
